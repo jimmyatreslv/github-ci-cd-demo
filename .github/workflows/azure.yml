@@ -15,12 +15,12 @@
 on:
   release:
     types: [created]
-
+name: "Azure"
 env:
-  AZURE_WEBAPP_NAME: test-nodejs-app5    # set this to your application's name
+  AZURE_WEBAPP_NAME: jimmy-node-app1    # set this to your application's name
   AZURE_WEBAPP_PACKAGE_PATH: '.'      # set this to the path to your web app project, defaults to the repository root
   NODE_VERSION: '10.x'                # set this to the node version to use
-
+  TARGET_URL: "https://jimmy-node-app1.azurewebsites.net"
 jobs:
   build-and-deploy:
     name: Build and Deploy
@@ -38,9 +38,34 @@ jobs:
         npm install
         npm run build --if-present
         npm run test --if-present
+    - uses: chrnorm/deployment-action@releases/v1
+      name: Create GitHub deployment
+      id: deployment
+      with:
+          token: "${{ github.token }}"
+          target_url: "${{ env.TARGET_URL }}"
+          environment: development
     - name: 'Deploy to Azure WebApp'
       uses: azure/webapps-deploy@v2
       with:
         app-name: ${{ env.AZURE_WEBAPP_NAME }}
         publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
         package: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
+        
+    - name: Update deployment status (success)
+      if: success()
+      uses: chrnorm/deployment-status@releases/v1
+      with:
+          token: "${{ github.token }}"
+          target_url: "${{ env.TARGET_URL }}"
+          state: "success"
+          deployment_id: ${{ steps.deployment.outputs.deployment_id }}
+
+    - name: Update deployment status (failure)
+      if: failure()
+      uses: chrnorm/deployment-status@releases/v1
+      with:
+          token: "${{ github.token }}"
+          target_url: "${{ env.TARGET_URL }}"
+          state: "failure"
+          deployment_id: ${{ steps.deployment.outputs.deployment_id }}
